@@ -19,7 +19,7 @@ interface MidtransNotification {
 
 export async function POST(req: Request) {
   try {
-    const serverKey = process.env.MIDTRANS_SERVER_KEY;
+    const serverKey = process.env.NEXT_PUBLIC_SECRET;
     if (!serverKey) {
       return NextResponse.json(
         { message: "MIDTRANS_SERVER_KEY tidak ditemukan" },

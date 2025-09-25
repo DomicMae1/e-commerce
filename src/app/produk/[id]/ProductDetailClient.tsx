@@ -17,6 +17,8 @@ export default function ProductDetailClient({ product }: { product: any }) {
       quantity: quantity, // ✅ sekarang terdefinisi
     };
 
+    console.log("Data yang dikirim ke backend:", data);
+
     try {
       const response = await fetch("/api/payment/create-transaction", {
         method: "POST",
