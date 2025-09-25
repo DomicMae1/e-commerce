@@ -1,68 +1,60 @@
 // src/app/api/payment/create-transaction/route.ts
 
+import { snap } from "@/app/lib/midtrans";
 import { NextResponse } from "next/server";
-import midtransClient from "midtrans-client";
-
-const serverKey = process.env.MIDTRANS_SERVER_KEY;
-const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY;
-
-if (!serverKey) {
-  throw new Error("MIDTRANS_SERVER_KEY tidak ditemukan di environment variables");
-}
-if (!clientKey) {
-  throw new Error("NEXT_PUBLIC_MIDTRANS_CLIENT_KEY tidak ditemukan di environment variables");
-}
-
-// PERBAIKAN 1: Gunakan 'const' karena 'snap' tidak pernah diubah nilainya.
-const snap = new midtransClient.Snap({
-  isProduction: false,
-  serverKey: serverKey, // <-- Gunakan variabel yang sudah divalidasi
-  clientKey: clientKey, // <-- Gunakan variabel yang sudah divalidasi
-});
+// Gunakan instance snap terpusat dari lib/midtrans.ts
 
 export async function POST(req: Request) {
   try {
-    const { order_id, gross_amount, customer_details } = await req.json();
+    // PERBAIKAN 1: Mengambil data sesuai contoh lama { id, productName, price, quantity }
+    const { id, productName, price, quantity } = await req.json();
 
-    if (!order_id || !gross_amount || !customer_details) {
+    // Validasi untuk data yang baru
+    if (!id || !productName || !price || !quantity) {
       return NextResponse.json(
-        { message: "Data tidak lengkap" },
+        {
+          message:
+            "Data produk tidak lengkap: id, productName, price, quantity dibutuhkan.",
+        },
         { status: 400 }
       );
     }
 
+    // PERBAIKAN 2: Membuat parameter Midtrans sesuai logika contoh lama
     const parameter = {
       transaction_details: {
-        order_id: order_id,
-        gross_amount: gross_amount,
+        order_id: id,
+        gross_amount: price * quantity,
       },
+      item_details: [
+        {
+          id: id,
+          price: price,
+          quantity: quantity,
+          name: productName,
+        },
+      ],
+      // Menambahkan customer_details tetap merupakan praktik yang baik
       customer_details: {
-        first_name: customer_details.first_name,
-        last_name: customer_details.last_name,
-        email: customer_details.email,
-        phone: customer_details.phone,
-      },
-      credit_card: {
-        secure: true,
+        first_name: "Pelanggan",
+        last_name: "TokoNext",
       },
     };
 
+    // Library modern menggunakan `createTransaction` yang mengembalikan objek { token: '...' }
     const transaction = await snap.createTransaction(parameter);
+    const token = transaction.token;
 
-    return NextResponse.json({
-      message: "Transaksi berhasil dibuat",
-      token: transaction.token,
-    });
+    console.log("Midtrans Token:", token);
+
+    // PERBAIKAN 3: Mengirim respons JSON yang simpel, hanya berisi token
+    return NextResponse.json({ token });
   } catch (error) {
-    // PERBAIKAN 2: Hindari penggunaan 'any' secara eksplisit.
     console.error("Error creating transaction:", error);
-
-    // PERBAIKAN 3: Tangani error secara type-safe.
-    let errorMessage = "Terjadi kesalahan pada server";
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    }
-
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Terjadi kesalahan tidak dikenal";
     return NextResponse.json(
       { message: "Terjadi kesalahan pada server", error: errorMessage },
       { status: 500 }

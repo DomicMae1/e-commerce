@@ -11,6 +11,7 @@ export default function ProductDetailPage({
   params: { id: string };
 }) {
   const [loading, setLoading] = useState(false);
+  const [quantity, setQuantity] = useState(1); // Tambahkan state untuk kuantitas
 
   const product = products.find((p) => p.id.toString() === params.id);
 
@@ -18,53 +19,34 @@ export default function ProductDetailPage({
     notFound();
   }
 
+  // Fungsi untuk mengubah kuantitas
+  const handleQuantityChange = (amount: number) => {
+    setQuantity((prev) => Math.max(1, prev + amount));
+  };
+
   const handleCheckout = async () => {
-    setLoading(true);
-    try {
-      const orderDetails = {
-        order_id: `ORDER-${product.id}-${Date.now()}`,
-        gross_amount: product.price,
-        customer_details: {
-          first_name: "Budi",
-          last_name: "Prasetyo",
-          email: "budi.p@example.com",
-          phone: "081234567890",
-        },
-        item_details: [
-          {
-            id: product.id.toString(),
-            price: product.price,
-            quantity: 1,
-            name: product.name,
-          },
-        ],
-      };
+    const data = {
+      id: `ORDER-${product.id}-${Date.now()}`,
+      productName: product.name,
+      price: product.price,
+      quantity: quantity,
+    };
 
-      const response = await fetch("/api/payment/create-transaction", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderDetails),
-      });
+    // PERBAIKAN: Sesuaikan endpoint dengan lokasi file backend Anda
+    const response = await fetch("/api/payment/create-transaction", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message);
+    const requestData = await response.json();
 
-      if (window.snap) {
-        window.snap.pay(data.token, {
-          onSuccess: (result: MidtransPayResult) =>
-            alert(`Pembayaran berhasil! ID: ${result.order_id}`),
-          onPending: (result: MidtransPayResult) =>
-            alert(`Menunggu pembayaran. ID: ${result.order_id}`),
-          onError: (result: MidtransPayResult) =>
-            alert(`Pembayaran gagal. ID: ${result.order_id}`),
-          onClose: () => alert("Anda menutup pop-up pembayaran."),
-        });
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Terjadi kesalahan saat checkout.");
-    } finally {
-      setLoading(false);
+    if (response.ok) {
+      window.snap.pay(requestData.token);
+    } else {
+      alert(requestData.error || "Gagal membuat transaksi");
     }
   };
 
@@ -81,10 +63,30 @@ export default function ProductDetailPage({
           />
         </div>
         <h1 className="text-3xl font-bold text-gray-900">{product.name}</h1>
-        <p className="mt-2 mb-6 text-gray-600">{product.description}</p>
-        <div className="mb-8 text-4xl font-extrabold text-gray-900">
-          Rp {product.price.toLocaleString("id-ID")}
+        <p className="mt-2 mb-4 text-gray-600">{product.description}</p>
+
+        {/* Tambahkan pengatur kuantitas */}
+        <div className="flex items-center justify-between mb-6">
+          <p className="text-3xl font-extrabold text-gray-900">
+            Rp {(product.price * quantity).toLocaleString("id-ID")}
+          </p>
+          <div className="flex items-center gap-2 border rounded-lg p-1">
+            <button
+              onClick={() => handleQuantityChange(-1)}
+              className="px-3 py-1 text-lg"
+            >
+              -
+            </button>
+            <span className="px-3 text-lg font-semibold">{quantity}</span>
+            <button
+              onClick={() => handleQuantityChange(1)}
+              className="px-3 py-1 text-lg"
+            >
+              +
+            </button>
+          </div>
         </div>
+
         <button
           onClick={handleCheckout}
           disabled={loading}
