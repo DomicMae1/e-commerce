@@ -17,26 +17,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id">
-      {" "}
-      {/* Ganti bahasa ke Indonesia */}
       <head>
-        {/* 2. Tambahkan Script Midtrans di sini */}
+        {/* 2. TAMBAHKAN SCRIPT MIDTRANS DI SINI */}
         <Script
           src="https://app.sandbox.midtrans.com/snap/snap.js"
           data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
-          strategy="beforeInteractive" // Load sebelum halaman menjadi interaktif
+          strategy="beforeInteractive" // Load sebelum halaman interaktif
         />
       </head>
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} font-sans antialiased bg-gray-50 text-gray-800`}
       >
-        {/* 2. Panggil komponen Navbar di sini, menggantikan kode header yang lama */}
         <Navbar />
-
-        {/* Konten halaman akan dirender di sini */}
         <main className="container mx-auto px-4 py-8">{children}</main>
-
-        {/* Anda bisa menambahkan komponen Footer di sini jika perlu */}
       </body>
     </html>
   );
