@@ -1,9 +1,7 @@
 // src/app/api/payment/notification/route.ts
-
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 
-// Buat interface untuk tipe data notifikasi
 interface MidtransNotification {
   order_id: string;
   transaction_status:
@@ -19,22 +17,19 @@ interface MidtransNotification {
   signature_key: string;
 }
 
-// PERBAIKAN 1: Validasi Server Key di awal dan simpan dalam konstanta
-const serverKey = process.env.MIDTRANS_SERVER_KEY;
-if (!serverKey) {
-  throw new Error(
-    "MIDTRANS_SERVER_KEY tidak ditemukan di environment variables"
-  );
-}
-
-// PERBAIKAN 2: Hapus inisialisasi 'core' yang tidak terpakai
-// const core = new midtransClient.CoreApi({ ... });
-
 export async function POST(req: Request) {
   try {
+    const serverKey = process.env.MIDTRANS_SERVER_KEY;
+    if (!serverKey) {
+      return NextResponse.json(
+        { message: "MIDTRANS_SERVER_KEY tidak ditemukan" },
+        { status: 500 }
+      );
+    }
+
     const notificationJson: MidtransNotification = await req.json();
 
-    const isSignatureValid = verifySignature(notificationJson);
+    const isSignatureValid = verifySignature(notificationJson, serverKey);
     if (!isSignatureValid) {
       return NextResponse.json(
         { message: "Signature tidak valid!" },
@@ -50,23 +45,19 @@ export async function POST(req: Request) {
 
     console.log(`Transaksi ${orderId}: ${transactionStatus}`);
 
-    // Logika untuk update database Anda...
     if (
       transactionStatus === "settlement" ||
       (transactionStatus === "capture" && fraudStatus === "accept")
     ) {
       console.log(`Pembayaran untuk order ${orderId} berhasil/selesai.`);
-      // TODO: Update status di database Anda menjadi 'SUCCESS'
     } else if (
       transactionStatus === "cancel" ||
       transactionStatus === "deny" ||
       transactionStatus === "expire"
     ) {
       console.log(`Pembayaran untuk order ${orderId} gagal/dibatalkan.`);
-      // TODO: Update status di database Anda menjadi 'FAILED'
     } else if (transactionStatus === "pending") {
       console.log(`Menunggu pembayaran untuk order ${orderId}.`);
-      // TODO: Update status di database Anda menjadi 'PENDING'
     }
 
     return NextResponse.json({ message: "Notifikasi berhasil diterima." });
@@ -81,11 +72,10 @@ export async function POST(req: Request) {
   }
 }
 
-/**
- * Fungsi helper untuk verifikasi signature.
- * Sekarang lebih sederhana karena 'serverKey' sudah divalidasi di atas.
- */
-function verifySignature(notification: MidtransNotification): boolean {
+function verifySignature(
+  notification: MidtransNotification,
+  serverKey: string
+): boolean {
   const { order_id, status_code, gross_amount, signature_key } = notification;
 
   const hash = crypto
