@@ -5,7 +5,6 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import { products } from "@/data/products";
 
-// Definisikan tipe props secara inline untuk menghindari konflik
 export default function ProductDetailPage({
   params,
 }: {
@@ -52,7 +51,6 @@ export default function ProductDetailPage({
 
       if (window.snap) {
         window.snap.pay(data.token, {
-          // Gunakan tipe MidtransPayResult dari file types/midtrans.d.ts
           onSuccess: (result: MidtransPayResult) =>
             alert(`Pembayaran berhasil! ID: ${result.order_id}`),
           onPending: (result: MidtransPayResult) =>
