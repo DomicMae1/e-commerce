@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState } from "react";
@@ -6,19 +5,19 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import { products } from "@/data/products"; // Impor data dari file terpusat
 
-type Props = {
-  params: {
-    id: string;
-  };
-};
+// Perbaikan 1: Hapus tipe 'Props' yang terpisah
+// type Props = { ... };
 
-export default function ProductDetailPage({ params }: Props) {
+// Perbaikan 2: Definisikan tipe props secara inline di dalam argumen fungsi
+export default function ProductDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
   const [loading, setLoading] = useState(false);
 
-  // Cari produk berdasarkan ID dari URL
   const product = products.find((p) => p.id.toString() === params.id);
 
-  // Jika produk tidak ditemukan, tampilkan halaman 404
   if (!product) {
     notFound();
   }
@@ -56,11 +55,12 @@ export default function ProductDetailPage({ params }: Props) {
 
       if (window.snap) {
         window.snap.pay(data.token, {
-          onSuccess: (result: { order_id: any }) =>
+          // Perbaikan 3: Gunakan tipe MidtransPayResult yang sudah ada
+          onSuccess: (result: MidtransPayResult) =>
             alert(`Pembayaran berhasil! ID: ${result.order_id}`),
-          onPending: (result: { order_id: any }) =>
+          onPending: (result: MidtransPayResult) =>
             alert(`Menunggu pembayaran. ID: ${result.order_id}`),
-          onError: (result: { order_id: any }) =>
+          onError: (result: MidtransPayResult) =>
             alert(`Pembayaran gagal. ID: ${result.order_id}`),
           onClose: () => alert("Anda menutup pop-up pembayaran."),
         });
