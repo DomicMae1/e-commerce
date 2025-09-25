@@ -1,63 +1,43 @@
 // src/app/api/payment/create-transaction/route.ts
-
-import { snap } from "@/app/lib/midtrans";
 import { NextResponse } from "next/server";
-// Gunakan instance snap terpusat dari lib/midtrans.ts
+import midtransClient from "midtrans-client";
 
 export async function POST(req: Request) {
   try {
-    // PERBAIKAN 1: Mengambil data sesuai contoh lama { id, productName, price, quantity }
-    const { id, productName, price, quantity } = await req.json();
+    const serverKey = process.env.MIDTRANS_SERVER_KEY;
+    const clientKey = process.env.MIDTRANS_CLIENT_KEY;
 
-    // Validasi untuk data yang baru
-    if (!id || !productName || !price || !quantity) {
+    if (!serverKey || !clientKey) {
       return NextResponse.json(
-        {
-          message:
-            "Data produk tidak lengkap: id, productName, price, quantity dibutuhkan.",
-        },
-        { status: 400 }
+        { message: "MIDTRANS_SERVER_KEY atau CLIENT_KEY belum diatur!" },
+        { status: 500 }
       );
     }
 
-    // PERBAIKAN 2: Membuat parameter Midtrans sesuai logika contoh lama
+    const snap = new midtransClient.Snap({
+      isProduction: false,
+      serverKey,
+      clientKey,
+    });
+
+    const body = await req.json();
+
     const parameter = {
       transaction_details: {
-        order_id: id,
-        gross_amount: price * quantity,
+        order_id: body.order_id || `ORDER-${Date.now()}`,
+        gross_amount: body.gross_amount,
       },
-      item_details: [
-        {
-          id: id,
-          price: price,
-          quantity: quantity,
-          name: productName,
-        },
-      ],
-      // Menambahkan customer_details tetap merupakan praktik yang baik
-      customer_details: {
-        first_name: "Pelanggan",
-        last_name: "TokoNext",
-      },
+      item_details: body.item_details,
+      customer_details: body.customer_details,
     };
 
-    // Library modern menggunakan `createTransaction` yang mengembalikan objek { token: '...' }
     const transaction = await snap.createTransaction(parameter);
-    const token = transaction.token;
 
-    console.log("Midtrans Token:", token);
-
-    // PERBAIKAN 3: Mengirim respons JSON yang simpel, hanya berisi token
-    return NextResponse.json({ token });
+    return NextResponse.json({ token: transaction.token });
   } catch (error) {
-    console.error("Error creating transaction:", error);
-    const errorMessage =
-      error instanceof Error
-        ? error.message
-        : "Terjadi kesalahan tidak dikenal";
-    return NextResponse.json(
-      { message: "Terjadi kesalahan pada server", error: errorMessage },
-      { status: 500 }
-    );
+    console.error("Create Transaction Error:", error);
+    const message =
+      error instanceof Error ? error.message : "Internal Server Error";
+    return NextResponse.json({ message }, { status: 500 });
   }
 }
