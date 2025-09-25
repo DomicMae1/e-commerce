@@ -3,12 +3,9 @@
 import { useState } from "react";
 import { notFound } from "next/navigation";
 import Image from "next/image";
-import { products } from "@/data/products"; // Impor data dari file terpusat
+import { products } from "@/data/products";
 
-// Perbaikan 1: Hapus tipe 'Props' yang terpisah
-// type Props = { ... };
-
-// Perbaikan 2: Definisikan tipe props secara inline di dalam argumen fungsi
+// Definisikan tipe props secara inline untuk menghindari konflik
 export default function ProductDetailPage({
   params,
 }: {
@@ -55,7 +52,7 @@ export default function ProductDetailPage({
 
       if (window.snap) {
         window.snap.pay(data.token, {
-          // Perbaikan 3: Gunakan tipe MidtransPayResult yang sudah ada
+          // Gunakan tipe MidtransPayResult dari file types/midtrans.d.ts
           onSuccess: (result: MidtransPayResult) =>
             alert(`Pembayaran berhasil! ID: ${result.order_id}`),
           onPending: (result: MidtransPayResult) =>
