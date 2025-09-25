@@ -3,8 +3,8 @@
 import midtransClient from "midtrans-client";
 
 // 1. Ambil dan validasi environment variables terlebih dahulu
-const serverKey = process.env.NEXT_PUBLIC_SECRET;
-const clientKey = process.env.NEXT_PUBLIC_CLIENT;
+const serverKey = process.env.MIDTRANS_SERVER_KEY;
+const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY;
 
 if (!serverKey) {
   throw new Error("Variabel lingkungan MIDTRANS_SERVER_KEY belum diatur!");
