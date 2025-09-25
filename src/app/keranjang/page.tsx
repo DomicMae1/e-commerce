@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // src/app/keranjang/page.tsx
-"use client"; // Komponen ini interaktif, jadi harus Client Component
+"use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 
-// Mendefinisikan tipe data untuk setiap item di keranjang
 type CartItem = {
   id: number;
   name: string;
@@ -15,21 +14,20 @@ type CartItem = {
   image: string;
 };
 
-// Data awal untuk simulasi (bisa diganti dengan data dari API atau state management)
 const initialItems: CartItem[] = [
   {
     id: 1,
     name: "Exclusive Next.js Hoodie",
     price: 250000,
     quantity: 1,
-    image: "/hoodie.jpg", // Ganti dengan path gambar produk Anda di folder /public
+    image: "/hoodie.jpg",
   },
   {
     id: 2,
     name: "React Developer Sticker",
     price: 25000,
     quantity: 2,
-    image: "/sticker.jpg", // Ganti dengan path gambar produk Anda di folder /public
+    image: "/sticker.jpg",
   },
 ];
 
@@ -37,7 +35,7 @@ export default function CartPage() {
   const [items, setItems] = useState<CartItem[]>(initialItems);
   const [loading, setLoading] = useState(false);
 
-  // Fungsi untuk mengubah jumlah barang
+  // ... (Fungsi handleQuantityChange, handleRemoveItem, total, handleCheckout tetap sama)
   const handleQuantityChange = (id: number, delta: number) => {
     setItems(
       items.map((item) =>
@@ -48,33 +46,27 @@ export default function CartPage() {
     );
   };
 
-  // Fungsi untuk menghapus barang dari keranjang
   const handleRemoveItem = (id: number) => {
     setItems(items.filter((item) => item.id !== id));
   };
 
-  // Kalkulasi total harga menggunakan useMemo agar lebih efisien
   const total = useMemo(() => {
     return items.reduce((acc, item) => acc + item.price * item.quantity, 0);
   }, [items]);
 
-  // Fungsi untuk proses checkout
   const handleCheckout = async () => {
     if (items.length === 0) {
       alert("Keranjang Anda kosong!");
       return;
     }
-
     setLoading(true);
     try {
-      // Menyiapkan detail item untuk dikirim ke Midtrans
       const item_details = items.map((item) => ({
         id: item.id.toString(),
         price: item.price,
         quantity: item.quantity,
         name: item.name,
       }));
-
       const orderDetails = {
         order_id: `ORDER-${Date.now()}`,
         gross_amount: total,
@@ -84,18 +76,15 @@ export default function CartPage() {
           email: "budi.s@example.com",
           phone: "081234567891",
         },
-        item_details, // Kirim detail item ke backend
+        item_details,
       };
-
       const response = await fetch("/api/payment/create-transaction", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(orderDetails),
       });
       const data = await response.json();
-
       if (!response.ok) throw new Error(data.message);
-
       if (window.snap) {
         window.snap.pay(data.token, {
           onSuccess: (result: any) => alert("Pembayaran berhasil!"),
@@ -119,13 +108,13 @@ export default function CartPage() {
       {items.length === 0 ? (
         <div className="text-center py-16 border rounded-lg">
           <p className="text-xl text-gray-500">Keranjang Anda kosong.</p>
-          {/* Tambahkan link untuk kembali ke halaman produk */}
-          <a
+          {/* 2. GANTI TAG <a> MENJADI <Link> */}
+          <Link
             href="/produk"
             className="mt-4 inline-block bg-blue-600 text-white px-6 py-2 rounded-lg"
           >
             Mulai Belanja
-          </a>
+          </Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
