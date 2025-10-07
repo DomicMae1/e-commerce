@@ -1,6 +1,6 @@
 // src/app/api/payment/create-transaction/route.ts
 import { NextResponse } from "next/server";
-import { snap } from "@/app/lib/midtrans";
+import { snap } from "@/lib/midtrans";
 
 export async function POST(req: Request) {
   try {
