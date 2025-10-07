@@ -1,60 +1,131 @@
 /* eslint-disable @next/next/no-img-element */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-vars */
-// src/app/keranjang/page.tsx
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { getCookie } from "@/utils/cookies";
+import { useCart } from "@/context/CartContext"; // ✅ pakai context
 
 type CartItem = {
-  id: number;
-  name: string;
+  productId: string;
+  productName: string;
   price: number;
   quantity: number;
-  image: string;
+  image?: string | null;
+  description?: string;
 };
 
-const initialItems: CartItem[] = [
-  {
-    id: 1,
-    name: "Exclusive Next.js Hoodie",
-    price: 250000,
-    quantity: 1,
-    image: "/hoodie.jpg",
-  },
-  {
-    id: 2,
-    name: "React Developer Sticker",
-    price: 25000,
-    quantity: 2,
-    image: "/sticker.jpg",
-  },
-];
-
 export default function CartPage() {
-  const [items, setItems] = useState<CartItem[]>(initialItems);
+  const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
 
-  // ... (Fungsi handleQuantityChange, handleRemoveItem, total, handleCheckout tetap sama)
-  const handleQuantityChange = (id: number, delta: number) => {
-    setItems(
-      items.map((item) =>
-        item.id === id
-          ? { ...item, quantity: Math.max(1, item.quantity + delta) }
-          : item
+  // ✅ ambil context
+  const { incrementCart, decrementCart, syncCartFromServer } = useCart();
+
+  // ✅ Ambil data keranjang dari backend
+  const fetchCart = async () => {
+    try {
+      setFetching(true);
+      const res = await fetch("/api/carts/get", { method: "GET" });
+      if (!res.ok) throw new Error("Gagal mengambil keranjang");
+      const data = await res.json();
+      setItems(data.items || []);
+    } catch (error) {
+      console.error(error);
+      setItems([]);
+    } finally {
+      setFetching(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCart();
+  }, []);
+
+  // ✅ Ubah quantity (optimistic update)
+  const handleQuantityChange = async (productId: string, delta: number) => {
+    const item = items.find((i) => i.productId === productId);
+    if (!item) return;
+
+    const attemptedQuantity = item.quantity + delta;
+    // Jangan turunkan di bawah 1
+    const newQuantity = Math.max(1, attemptedQuantity);
+
+    // actualDelta = perubahan nyata yang akan kita lakukan
+    const actualDelta = newQuantity - item.quantity;
+    // kalau tidak ada perubahan (mis. coba kurangi saat sudah 1), jangan melakukan apa-apa
+    if (actualDelta === 0) return;
+
+    const userId = getCookie("_id");
+
+    setItems((prev) =>
+      prev.map((i) =>
+        i.productId === productId ? { ...i, quantity: newQuantity } : i
       )
     );
+
+    // hanya update context berdasarkan perubahan nyata
+    if (actualDelta > 0) incrementCart(actualDelta);
+    else decrementCart(Math.abs(actualDelta));
+
+    try {
+      const res = await fetch("/api/carts/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // kirim actualDelta agar backend tahu berapa yang berubah
+        body: JSON.stringify({
+          userId,
+          productId,
+          quantity: actualDelta, // backend diharapkan menerima delta (positif/negatif)
+        }),
+      });
+      if (!res.ok) throw new Error("Gagal update quantity");
+      // 🔄 sync ulang biar pasti sama
+      syncCartFromServer();
+    } catch (err) {
+      console.error(err);
+      alert("Gagal memperbarui keranjang");
+      fetchCart(); // rollback kalau error
+      syncCartFromServer();
+    }
   };
 
-  const handleRemoveItem = (id: number) => {
-    setItems(items.filter((item) => item.id !== id));
+  // ✅ Hapus item (optimistic juga)
+  const handleRemoveItem = async (productId: string) => {
+    const userId = getCookie("_id");
+
+    // langsung optimistik hapus di UI
+    const removedItem = items.find((i) => i.productId === productId);
+    if (!removedItem) return;
+    setItems((prev) => prev.filter((i) => i.productId !== productId));
+    decrementCart(removedItem.quantity);
+
+    try {
+      const res = await fetch("/api/carts/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, productId }),
+      });
+      if (!res.ok) throw new Error("Gagal hapus produk");
+      syncCartFromServer();
+    } catch (err) {
+      console.error(err);
+      alert("Gagal menghapus item");
+      fetchCart(); // rollback
+      syncCartFromServer();
+    }
   };
 
+  // ✅ Hitung total
   const total = useMemo(() => {
-    return items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+    return items.reduce(
+      (acc, item) => acc + (item.price || 0) * item.quantity,
+      0
+    );
   }, [items]);
 
+  // ✅ Checkout
   const handleCheckout = async () => {
     if (items.length === 0) {
       alert("Keranjang Anda kosong!");
@@ -62,35 +133,25 @@ export default function CartPage() {
     }
     setLoading(true);
     try {
-      const item_details = items.map((item) => ({
-        id: item.id.toString(),
-        price: item.price,
-        quantity: item.quantity,
-        name: item.name,
-      }));
-      const orderDetails = {
-        order_id: `ORDER-${Date.now()}`,
-        gross_amount: total,
-        customer_details: {
-          first_name: "Budi",
-          last_name: "Susanto",
-          email: "budi.s@example.com",
-          phone: "081234567891",
-        },
-        item_details,
+      const payload = {
+        id: `ORDER-${Date.now()}`,
+        productName: "Keranjang Belanja",
+        price: total,
+        quantity: 1,
       };
+
       const response = await fetch("/api/payment/create-transaction", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderDetails),
+        body: JSON.stringify(payload),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message);
       if (window.snap) {
         window.snap.pay(data.token, {
-          onSuccess: (result: any) => alert("Pembayaran berhasil!"),
-          onPending: (result: any) => alert("Menunggu pembayaran."),
-          onError: (result: any) => alert("Pembayaran gagal."),
+          onSuccess: () => alert("Pembayaran berhasil!"),
+          onPending: () => alert("Menunggu pembayaran."),
+          onError: () => alert("Pembayaran gagal."),
           onClose: () => alert("Anda menutup pop-up pembayaran."),
         });
       }
@@ -103,13 +164,16 @@ export default function CartPage() {
   };
 
   return (
-    <main className="container mx-auto px-4 py-8">
+    <main className="container mx-auto px-4 py-8 w-full">
       <h1 className="text-3xl font-bold mb-6">Keranjang Belanja Anda</h1>
 
-      {items.length === 0 ? (
+      {fetching ? (
+        <div className="w-full h-screen flex items-center justify-center">
+          <p className="text-gray-500">Memuat keranjang...</p>
+        </div>
+      ) : items.length === 0 ? (
         <div className="text-center py-16 border rounded-lg">
           <p className="text-xl text-gray-500">Keranjang Anda kosong.</p>
-          {/* 2. GANTI TAG <a> MENJADI <Link> */}
           <Link
             href="/produk"
             className="mt-4 inline-block bg-blue-600 text-white px-6 py-2 rounded-lg"
@@ -123,44 +187,48 @@ export default function CartPage() {
           <div className="lg:col-span-2 space-y-4">
             {items.map((item) => (
               <div
-                key={item.id}
-                className="flex items-center gap-4 p-4 border rounded-lg shadow-sm"
+                key={item.productId}
+                className="flex items-center justify-between border p-4 rounded-lg"
               >
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="w-20 h-20 object-cover rounded"
-                />
-                <div className="flex-grow">
-                  <p className="font-semibold">{item.name}</p>
-                  <p className="text-sm text-gray-600">
-                    Rp {item.price.toLocaleString("id-ID")}
-                  </p>
+                <div className="flex items-center gap-4">
+                  <img
+                    src={item.image || "/no-image.png"}
+                    alt={item.productName}
+                    className="w-24 h-24 object-cover rounded"
+                  />
+
+                  <div>
+                    <p className="font-semibold">{item.productName}</p>
+                    <p className="text-sm text-gray-500">
+                      Rp {(item.price || 0).toLocaleString("id-ID")}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => handleQuantityChange(item.id, -1)}
-                    className="px-2 py-1 border rounded"
+                    onClick={() =>
+                      item.quantity > 1 &&
+                      handleQuantityChange(item.productId, -1)
+                    }
+                    className="px-2 py-1 border rounded disabled:opacity-50"
+                    disabled={item.quantity <= 1}
                   >
                     -
                   </button>
                   <span>{item.quantity}</span>
                   <button
-                    onClick={() => handleQuantityChange(item.id, 1)}
+                    onClick={() => handleQuantityChange(item.productId, 1)}
                     className="px-2 py-1 border rounded"
                   >
                     +
                   </button>
+                  <button
+                    onClick={() => handleRemoveItem(item.productId)}
+                    className="ml-4 text-red-500"
+                  >
+                    Hapus
+                  </button>
                 </div>
-                <p className="font-semibold w-28 text-right">
-                  Rp {(item.price * item.quantity).toLocaleString("id-ID")}
-                </p>
-                <button
-                  onClick={() => handleRemoveItem(item.id)}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  ✕
-                </button>
               </div>
             ))}
           </div>
