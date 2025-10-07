@@ -1,20 +1,20 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // src/data/products.ts
 
-// 1. Definisikan tipe untuk varian warna
-type ColorOption = {
-  value: string;
-  label: string;
-};
-
 // 2. Perbarui tipe data Product untuk menyertakan 'colors' (opsional)
+// src/data/products.ts
+
+// ...
 export type Product = {
-  id: number;
+  _id?: any; // ID dari MongoDB
+  id: number | string; // ID yang kita gunakan di komponen
   name: string;
   price: number;
   image: string;
   description: string;
-  colors?: ColorOption[]; // '?' berarti properti ini tidak wajib ada di setiap produk
+  colors?: { value: string; label: string }[];
 };
+// ... sisa file tetap sama
 
 // 3. Ekspor array data produk dengan data 'colors' yang baru
 export const products: Product[] = [
