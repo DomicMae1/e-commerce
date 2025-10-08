@@ -5,10 +5,9 @@ import clientPromise from "@/lib/mongodb";
 
 export async function GET(
   _req: Request,
-  contextPromise: Promise<{ params: { id: string } }>
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { params } = await contextPromise; // <- tambahkan await di sini
-  const { id } = params;
+  const id = (await params).id;
 
   try {
     if (!ObjectId.isValid(id)) {
@@ -43,11 +42,9 @@ export async function GET(
 
 export async function DELETE(
   _req: Request,
-  contextPromise: Promise<{ params: { id: string } }>
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { params } = await contextPromise; // <- tambahkan await di sini juga
-  const { id } = params;
-
+  const id = (await params).id;
   try {
     if (!ObjectId.isValid(id)) {
       return NextResponse.json(
@@ -85,10 +82,9 @@ export async function DELETE(
 
 export async function PUT(
   req: Request,
-  contextPromise: Promise<{ params: { id: string } }>
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { params } = await contextPromise;
-  const { id } = params;
+  const id = (await params).id;
 
   try {
     if (!ObjectId.isValid(id)) {
