@@ -1,16 +1,25 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { useEffect, useState } from "react";
+import { Product } from "@/data/products";
 
-interface EditProductFormProps {
-  product: any;
+type Category = {
+  _id: string;
+  name: string;
+  description?: string;
+};
+
+export interface EditProductFormProps {
+  product: Product;
+  categories: Category[]; // ⬅️ tambahkan ini
   onCancel: () => void;
-  onSave: (updatedProduct: any) => void;
+  onSave: (updated: Product) => Promise<void>;
 }
 
 export default function EditProductForm({
   product,
+  categories,
   onCancel,
   onSave,
 }: EditProductFormProps) {
@@ -22,31 +31,22 @@ export default function EditProductForm({
     categoryId: product.categoryId || "",
   });
 
-  const [categories, setCategories] = useState<{ _id: string; name: string }[]>(
-    []
-  );
+  const [localCategories, setLocalCategories] = useState<Category[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
-  // ✅ Ambil daftar kategori
   useEffect(() => {
     const fetchCategories = async () => {
       try {
         const res = await fetch("/api/categories");
         const json = await res.json();
-        if (json.success) {
-          setCategories(json.data);
-        } else {
-          console.warn("Gagal memuat kategori:", json.error);
-        }
+        if (json.success) setLocalCategories(json.data);
       } catch (err) {
-        console.error("Error fetching categories:", err);
+        console.error(err);
       }
     };
-
     fetchCategories();
   }, []);
 
-  // ✅ Tangani perubahan input
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
@@ -147,7 +147,7 @@ export default function EditProductForm({
               className="mt-1 w-full border rounded-lg p-2"
             >
               <option value="">-- Pilih Kategori --</option>
-              {categories.map((cat) => (
+              {localCategories.map((cat) => (
                 <option key={cat._id} value={cat._id}>
                   {cat.name}
                 </option>

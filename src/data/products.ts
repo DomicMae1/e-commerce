@@ -10,6 +10,8 @@ export type Product = {
   id: number | string; // ID yang kita gunakan di komponen
   name: string;
   price: number;
+  stock?: number; // tambahkan ini
+  categoryId?: string;
   image: string;
   description: string;
   colors?: { value: string; label: string }[];
