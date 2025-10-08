@@ -5,13 +5,13 @@ import { getUserCollection } from "@/models/User";
 // 🔹 Update user by ID
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const usersCollection = await getUserCollection();
     const body = await req.json();
 
-    const { id } = params;
+    const id = (await params).id;
     const updatedUser = {
       name: body.name,
       email: body.email,
