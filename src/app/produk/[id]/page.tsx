@@ -24,12 +24,13 @@ async function getProductById(id: string): Promise<Product | null> {
 }
 
 export default async function ProductDetailPage({
-  params,
+  params: paramsPromise,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await paramsPromise;
   // Ambil data produk berdasarkan ID dari URL
-  const product = await getProductById(params.id);
+  const product = await getProductById(id);
 
   // Jika produk tidak ada di database, tampilkan halaman 404
   if (!product) {
