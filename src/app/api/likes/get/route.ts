@@ -7,7 +7,7 @@ import { cookies } from "next/headers";
 export async function GET() {
   try {
     const cookieStore = cookies();
-    const userId = cookieStore.get("_id")?.value;
+    const userId = (await cookieStore).get("_id")?.value;
 
     if (!userId || !ObjectId.isValid(userId)) {
       return NextResponse.json({ items: [] });

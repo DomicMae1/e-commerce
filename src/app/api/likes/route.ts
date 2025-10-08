@@ -1,12 +1,18 @@
+// src/app/api/likes/route.ts
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import clientPromise from "@/lib/mongodb";
 import { cookies } from "next/headers";
+
+type Like = {
+  userId: ObjectId;
+  productIds: ObjectId[];
+};
 
 export async function GET() {
   try {
     const cookieStore = cookies();
-    const userId = cookieStore.get("_id")?.value;
+    const userId = (await cookieStore).get("_id")?.value;
 
     if (!userId || !ObjectId.isValid(userId)) {
       return NextResponse.json({ items: [] });
@@ -14,10 +20,9 @@ export async function GET() {
 
     const client = await clientPromise;
     const db = client.db("e-commerce");
+    const likesColl = db.collection<Like>("likes");
 
-    // Agregasi: hanya ambil _id dan name
-    const likedItems = await db
-      .collection("likes")
+    const likedItems = await likesColl
       .aggregate([
         { $match: { userId: new ObjectId(userId) } },
         { $unwind: "$productIds" },
@@ -31,12 +36,7 @@ export async function GET() {
         },
         { $unwind: "$productDetails" },
         { $replaceRoot: { newRoot: "$productDetails" } },
-        {
-          $project: {
-            _id: 1,
-            name: 1,
-          },
-        },
+        { $project: { _id: 1, name: 1 } },
       ])
       .toArray();
 
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
   try {
     const { productId } = await req.json();
     const cookieStore = cookies();
-    const userId = cookieStore.get("_id")?.value;
+    const userId = (await cookieStore).get("_id")?.value;
 
     if (!userId || !ObjectId.isValid(userId) || !ObjectId.isValid(productId)) {
       return NextResponse.json(
@@ -65,34 +65,32 @@ export async function POST(req: Request) {
 
     const client = await clientPromise;
     const db = client.db("e-commerce");
+    const likesColl = db.collection<Like>("likes");
 
-    const likesColl = db.collection("likes");
     const userLikes = await likesColl.findOne({ userId: new ObjectId(userId) });
 
     if (userLikes) {
       const alreadyLiked = userLikes.productIds.some(
-        (id: ObjectId) => id.toString() === productId
+        (id) => id.toString() === productId
       );
 
       if (alreadyLiked) {
-        // 🔴 Hapus productId dari daftar
-        await likesColl.findOneAndUpdate(
+        // Hapus productId dari array
+        await likesColl.updateOne(
           { userId: new ObjectId(userId) },
-          { $pull: { productIds: new ObjectId(productId) } },
-          { returnDocument: "after" }
+          { $pull: { productIds: new ObjectId(productId) } }
         );
         return NextResponse.json({ success: true, liked: false });
       } else {
-        // 🟢 Tambahkan productId ke daftar
-        await likesColl.findOneAndUpdate(
+        // Tambahkan productId ke array
+        await likesColl.updateOne(
           { userId: new ObjectId(userId) },
-          { $addToSet: { productIds: new ObjectId(productId) } },
-          { returnDocument: "after", upsert: true }
+          { $addToSet: { productIds: new ObjectId(productId) } }
         );
         return NextResponse.json({ success: true, liked: true });
       }
     } else {
-      // 🆕 Buat dokumen baru untuk user
+      // Buat dokumen baru jika belum ada
       await likesColl.insertOne({
         userId: new ObjectId(userId),
         productIds: [new ObjectId(productId)],

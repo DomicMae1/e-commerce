@@ -3,6 +3,13 @@ import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import clientPromise from "@/lib/mongodb";
 
+type Like = {
+  userId: ObjectId;
+  productIds: ObjectId[];
+  createdAt?: Date;
+  updatedAt?: Date;
+};
+
 export async function POST(req: Request) {
   try {
     const { userId, productId } = await req.json();
@@ -16,25 +23,21 @@ export async function POST(req: Request) {
 
     const client = await clientPromise;
     const db = client.db("e-commerce");
-    const likesCollection = db.collection("likes");
+    const likesCollection = db.collection<Like>("likes");
 
-    // Cari dokumen "likes" milik pengguna, sama seperti Anda mencari "carts"
     const userLikes = await likesCollection.findOne({
       userId: new ObjectId(userId),
     });
 
-    // --- ALUR JIKA PENGGUNA SUDAH PERNAH "LIKE" SEBELUMNYA ---
     if (userLikes) {
-      // Cari apakah produk ini sudah ada di dalam array productIds
-      // Kita gunakan .find() agar mirip dengan logika cart Anda
-      const isAlreadyLiked = userLikes.productIds.find(
-        (id: ObjectId) => id.toString() === productId
+      const isAlreadyLiked = userLikes.productIds.some(
+        (id) => id.toString() === productId
       );
 
       if (isAlreadyLiked) {
-        // Jika SUDAH ADA, maka kita hapus (UNLIKE)
+        // Hapus productId dari array secara type-safe
         await likesCollection.updateOne(
-          { _id: userLikes._id }, // Lebih efisien update berdasarkan _id dokumen
+          { _id: userLikes._id },
           { $pull: { productIds: new ObjectId(productId) } }
         );
         return NextResponse.json({
@@ -42,11 +45,10 @@ export async function POST(req: Request) {
           message: "Suka pada produk berhasil dihapus.",
         });
       } else {
-        // Jika BELUM ADA, maka kita tambahkan (LIKE)
-        // Kita gunakan $push agar mirip dengan logika cart Anda
+        // Tambahkan productId ke array
         await likesCollection.updateOne(
           { _id: userLikes._id },
-          { $push: { productIds: new ObjectId(productId) } }
+          { $addToSet: { productIds: new ObjectId(productId) } }
         );
         return NextResponse.json({
           success: true,
@@ -54,11 +56,10 @@ export async function POST(req: Request) {
         });
       }
     } else {
-      // --- ALUR JIKA INI ADALAH "LIKE" PERTAMA KALI OLEH PENGGUNA ---
-      // Buat dokumen baru dengan produk pertama yang disukai
+      // Buat dokumen baru jika user belum pernah like
       await likesCollection.insertOne({
         userId: new ObjectId(userId),
-        productIds: [new ObjectId(productId)], // Array dimulai dengan 1 item
+        productIds: [new ObjectId(productId)],
         createdAt: new Date(),
         updatedAt: new Date(),
       });
