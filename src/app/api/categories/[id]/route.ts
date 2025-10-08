@@ -7,10 +7,9 @@ import clientPromise from "@/lib/mongodb";
 // ✅ GET /api/categories/[id] — ambil kategori berdasarkan ID
 export async function GET(
   _req: Request,
-  contextPromise: Promise<{ params: { id: string } }>
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { params } = await contextPromise;
-  const { id } = params;
+  const id = (await params).id;
 
   try {
     if (!ObjectId.isValid(id)) {
@@ -47,10 +46,9 @@ export async function GET(
 // ✅ PUT /api/categories/[id] — update kategori (termasuk gambar base64)
 export async function PUT(
   req: Request,
-  contextPromise: Promise<{ params: { id: string } }>
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { params } = await contextPromise;
-  const { id } = params;
+  const id = (await params).id;
 
   try {
     if (!ObjectId.isValid(id)) {
@@ -122,10 +120,9 @@ export async function PUT(
 // ✅ DELETE /api/categories/[id] — hapus kategori
 export async function DELETE(
   _req: Request,
-  contextPromise: Promise<{ params: { id: string } }>
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { params } = await contextPromise;
-  const { id } = params;
+  const id = (await params).id;
 
   try {
     if (!ObjectId.isValid(id)) {
