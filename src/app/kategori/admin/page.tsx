@@ -1,136 +1,24 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useState, useRef } from "react";
 import { Plus, Edit, Trash, Image as ImageIcon } from "lucide-react";
-import { toast } from "react-hot-toast";
+import { useCategory } from "./useCategory";
 
-type Category = {
-  _id: string;
-  name: string;
-  description?: string;
-  image?: string; // base64 string
-};
-
-export default function KategoriPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ name: "", description: "", image: "" });
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // 🔹 Ambil daftar kategori saat halaman dimuat
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  const fetchCategories = async () => {
-    try {
-      const res = await fetch("/api/categories");
-      const data = await res.json();
-      if (data.success) {
-        setCategories(data.data);
-      } else {
-        toast.error(data.error || "Gagal memuat kategori");
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("Terjadi kesalahan saat memuat kategori");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 🔹 Konversi file ke base64
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = reader.result as string;
-      setForm((prev) => ({ ...prev, image: base64String }));
-      setPreview(base64String);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // 🔹 Tambah atau Update kategori
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!form.name.trim()) {
-      toast.error("Nama kategori wajib diisi");
-      return;
-    }
-
-    try {
-      const method = editingId ? "PUT" : "POST";
-      const url = editingId
-        ? `/api/categories/${editingId}`
-        : "/api/categories";
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        toast.success(
-          editingId
-            ? "Kategori berhasil diperbarui"
-            : "Kategori berhasil ditambahkan"
-        );
-        setForm({ name: "", description: "", image: "" });
-        setPreview(null);
-        setEditingId(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
-
-        fetchCategories();
-      } else {
-        toast.error(data.error || "Gagal menyimpan kategori");
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("Terjadi kesalahan saat menyimpan kategori");
-    }
-  };
-
-  // 🔹 Edit kategori
-  const handleEdit = (cat: Category) => {
-    setForm({
-      name: cat.name,
-      description: cat.description || "",
-      image: cat.image || "",
-    });
-    setPreview(cat.image || null);
-    setEditingId(cat._id);
-  };
-
-  // 🔹 Hapus kategori
-  const handleDelete = async (id: string) => {
-    if (!confirm("Yakin ingin menghapus kategori ini?")) return;
-
-    try {
-      const res = await fetch(`/api/categories/${id}`, { method: "DELETE" });
-      const data = await res.json();
-
-      if (data.success) {
-        toast.success("Kategori berhasil dihapus");
-        fetchCategories();
-      } else {
-        toast.error(data.error || "Gagal menghapus kategori");
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("Terjadi kesalahan saat menghapus kategori");
-    }
-  };
+export default function Page() {
+  const {
+    categories,
+    loading,
+    form,
+    setForm,
+    editingId,
+    preview,
+    fileInputRef,
+    handleImageChange,
+    handleSubmit,
+    handleEdit,
+    handleDelete,
+    resetForm,
+  } = useCategory();
 
   return (
     <div className="max-w-3xl mx-auto p-6">
@@ -156,7 +44,7 @@ export default function KategoriPage() {
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
 
-          {/* 🔹 Upload Gambar */}
+          {/* Upload Gambar */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Gambar Kategori
@@ -166,9 +54,9 @@ export default function KategoriPage() {
               accept="image/*"
               onChange={handleImageChange}
               className="border rounded px-3 py-2 w-full"
+              ref={fileInputRef}
             />
 
-            {/* 🔹 Preview gambar */}
             {preview && (
               <div className="mt-3">
                 <p className="text-sm text-gray-600">Preview:</p>
@@ -192,11 +80,7 @@ export default function KategoriPage() {
           {editingId && (
             <button
               type="button"
-              onClick={() => {
-                setEditingId(null);
-                setForm({ name: "", description: "", image: "" });
-                setPreview(null);
-              }}
+              onClick={resetForm}
               className="text-sm text-gray-600 underline"
             >
               Batal edit
@@ -218,7 +102,6 @@ export default function KategoriPage() {
               className="border rounded-lg p-4 flex justify-between items-center bg-white shadow-sm"
             >
               <div className="flex items-center gap-4">
-                {/* 🔹 Gambar kategori */}
                 {cat.image ? (
                   <img
                     src={cat.image}
