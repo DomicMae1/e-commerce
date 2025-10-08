@@ -1,47 +1,68 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// src/app/api/cart/add/route.ts
+// src/app/api/carts/add/route.ts
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import clientPromise from "@/lib/mongodb";
+
+type CartItem = {
+  productId: ObjectId;
+  quantity: number;
+};
+
+type Cart = {
+  userId: ObjectId;
+  items: CartItem[];
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export async function POST(req: Request) {
   try {
     const { userId, productId, quantity } = await req.json();
 
+    if (!userId || !productId || !quantity) {
+      return NextResponse.json(
+        { success: false, error: "userId, productId, dan quantity wajib diisi" },
+        { status: 400 }
+      );
+    }
+
     const client = await clientPromise;
     const db = client.db("e-commerce");
 
-    const cart = await db.collection("carts").findOne({
+    const cartsCollection = db.collection<Cart>("carts");
+
+    const cart = await cartsCollection.findOne({
       userId: new ObjectId(userId),
     });
 
+    const newItem: CartItem = {
+      productId: new ObjectId(productId),
+      quantity,
+    };
+
     if (cart) {
-      const existing = cart.items.find(
-        (item: any) => item.productId.toString() === productId
+      const existingItem = cart.items.find(
+        (item) => item.productId.toString() === productId
       );
 
-      if (existing) {
-        await db.collection("carts").updateOne(
-          {
-            userId: new ObjectId(userId),
-            "items.productId": new ObjectId(productId),
-          },
+      if (existingItem) {
+        // update quantity
+        await cartsCollection.updateOne(
+          { userId: new ObjectId(userId), "items.productId": new ObjectId(productId) },
           { $inc: { "items.$.quantity": quantity } }
         );
       } else {
-        await db.collection("carts").updateOne(
+        // push item baru
+        await cartsCollection.updateOne(
           { userId: new ObjectId(userId) },
-          {
-            $push: {
-              items: { productId: new ObjectId(productId), quantity },
-            },
-          }
+          { $push: { items: newItem } }
         );
       }
     } else {
-      await db.collection("carts").insertOne({
+      // buat cart baru
+      await cartsCollection.insertOne({
         userId: new ObjectId(userId),
-        items: [{ productId: new ObjectId(productId), quantity }],
+        items: [newItem],
         createdAt: new Date(),
         updatedAt: new Date(),
       });
