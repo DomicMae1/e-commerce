@@ -17,6 +17,8 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
+import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 
 type Category = {
   _id: string;
@@ -26,20 +28,44 @@ type Category = {
 };
 
 export default function HomePage() {
-  const { products, loading } = useProducts();
+  const { products: fetchedProducts, loading } = useProducts();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [promos, setPromos] = useState<any[]>([]);
   const [likedIds, setLikedIds] = useState<string[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const { isLoggedIn } = useAuth();
+  const router = useRouter();
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        const data = await res.json();
+        setUserRole(data?.user?.role || null);
+      } catch (error) {
+        console.error("Gagal ambil data user:", error);
+      }
+    };
+    fetchUser();
+  }, []);
 
   // 🔹 Ambil kategori
   useEffect(() => {
+    const localData = localStorage.getItem("categories");
+    if (localData) {
+      setCategories(JSON.parse(localData));
+      setLoadingCategories(false);
+    }
+
     const fetchCategories = async () => {
       try {
         const res = await fetch("/api/categories", { cache: "no-store" });
         const data = await res.json();
         if (data.success) {
           setCategories(data.data);
+          localStorage.setItem("categories", JSON.stringify(data.data)); // simpan ke localStorage
         }
       } catch (err) {
         console.error("Gagal fetch kategori:", err);
@@ -47,7 +73,51 @@ export default function HomePage() {
         setLoadingCategories(false);
       }
     };
+
     fetchCategories();
+  }, []);
+
+  useEffect(() => {
+    const localData = localStorage.getItem("products");
+    if (localData) {
+      setProducts(JSON.parse(localData));
+    }
+
+    // Jika data produk baru sudah di-fetch dari useProducts, update local storage
+    if (fetchedProducts.length > 0) {
+      setProducts(fetchedProducts);
+      localStorage.setItem("products", JSON.stringify(fetchedProducts));
+    }
+  }, [fetchedProducts]);
+
+  useEffect(() => {
+    const localData = localStorage.getItem("promos");
+    if (localData) {
+      const parsed = JSON.parse(localData).filter((p: any) => p && p.title);
+      setPromos(parsed);
+    }
+
+    const fetchPromos = async () => {
+      try {
+        const res = await fetch("/api/promo", { cache: "no-store" });
+        const data = await res.json();
+
+        if (data.success) {
+          const promoList = Array.isArray(data.data) ? data.data : [data.data];
+
+          const validPromos = promoList.filter(
+            (p: { title: any }) => p && p.title
+          );
+
+          setPromos(validPromos);
+          localStorage.setItem("promos", JSON.stringify(validPromos));
+        }
+      } catch (err) {
+        console.error("Gagal fetch promo:", err);
+      }
+    };
+
+    fetchPromos();
   }, []);
 
   useEffect(() => {
@@ -126,42 +196,46 @@ export default function HomePage() {
         <h2 className="text-3xl font-bold mb-6 text-gray-900 text-center">
           Promo Spesial
         </h2>
+
+        {/* Promo Section */}
         <Carousel
-          className="w-full max-w-6xl mx-auto "
-          opts={{ loop: true }} // supaya infinite scroll
+          className="w-full max-w-6xl mx-auto"
+          opts={{ loop: true }}
           plugins={[
             Autoplay({
-              delay: 3000, // ganti delay sesuai kebutuhan (ms)
+              delay: 3000,
               stopOnInteraction: false,
             }),
           ]}
         >
           <CarouselContent>
-            <CarouselItem>
-              <PromoCard
-                title="Diskon 50% untuk Kaos Coding"
-                subtitle="Promo berlaku sampai 10 Oktober"
-                image="/promo1.svg"
-              />
-            </CarouselItem>
-            <CarouselItem>
-              <PromoCard
-                title="Beli 1 Gratis 1 Stiker Dev"
-                subtitle="Khusus pembelian hoodie"
-                image="/promo2.svg"
-              />
-            </CarouselItem>
-            <CarouselItem>
-              <PromoCard
-                title="Gratis Ongkir"
-                subtitle="Minimal belanja Rp 200.000"
-                image="/promo3.svg"
-              />
-            </CarouselItem>
+            {promos
+              .filter((promo) => promo && promo.title) // pastikan tidak null
+              .map((promo: any, index: number) => (
+                <CarouselItem key={promo._id?.$oid || promo._id || index}>
+                  <PromoCard
+                    title={promo.title}
+                    subtitle={promo.subtitle}
+                    image={promo.image}
+                  />
+                </CarouselItem>
+              ))}
           </CarouselContent>
           <CarouselPrevious />
           <CarouselNext />
         </Carousel>
+        {/* 👇 Tombol hanya muncul jika user role = admin */}
+        {userRole === "admin" && (
+          <div className="mt-6 flex justify-center">
+            <Button
+              variant="default"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={() => router.push("/promo/admin")}
+            >
+              ✏️ Edit Promo
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Produk Unggulan */}
