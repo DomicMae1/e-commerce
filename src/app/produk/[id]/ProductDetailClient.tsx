@@ -10,7 +10,20 @@ export default function ProductDetailClient({ product }: { product: Product }) {
   const [loading, setLoading] = useState(false);
   const [quantity, setQuantity] = useState(1);
 
+  // 🔹 Tambahkan state untuk form input
+  const [form, setForm] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
+  });
+
   const handleCheckout = async () => {
+    if (!form.first_name || !form.email || !form.phone) {
+      alert("Harap isi data pembeli terlebih dahulu!");
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
@@ -18,6 +31,8 @@ export default function ProductDetailClient({ product }: { product: Product }) {
         productName: product.name,
         price: product.price,
         quantity: quantity,
+        customer: form,
+        bank: null,
       };
 
       const response = await fetch("/api/payment/create-transaction", {
@@ -28,7 +43,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
 
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.error || "Gagal membuat transaksi");
+        throw new Error(data.message || "Gagal membuat transaksi");
 
       if (window.snap) {
         window.snap.pay(data.token, {
@@ -49,7 +64,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4 md:p-24 bg-gray-50">
+    <main className="flex min-h-screen items-center justify-center p-4 md:p-24">
       <div className="w-full max-w-md rounded-xl border bg-white p-6 md:p-8 shadow-lg">
         <div className="relative w-full h-64 mb-6 rounded-lg overflow-hidden">
           <Image
@@ -89,6 +104,50 @@ export default function ProductDetailClient({ product }: { product: Product }) {
         >
           {loading ? "Memproses..." : "Beli Sekarang"}
         </button>
+
+        {/* 🔹 Form Data Pembeli */}
+        <div className="mt-6 border-t pt-4">
+          <h2 className="text-lg font-semibold mb-3 text-gray-800">
+            Data Pembeli
+          </h2>
+
+          <div className="flex flex-col gap-3">
+            <input
+              type="text"
+              placeholder="Nama Depan"
+              className="border rounded px-3 py-2"
+              value={form.first_name}
+              onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+              required
+            />
+
+            <input
+              type="text"
+              placeholder="Nama Belakang"
+              className="border rounded px-3 py-2"
+              value={form.last_name}
+              onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+            />
+
+            <input
+              type="email"
+              placeholder="Email"
+              className="border rounded px-3 py-2"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              required
+            />
+
+            <input
+              type="tel"
+              placeholder="Nomor Telepon"
+              className="border rounded px-3 py-2"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              required
+            />
+          </div>
+        </div>
       </div>
     </main>
   );
