@@ -20,8 +20,8 @@ export default function KategoriPage() {
         const res = await fetch("/api/categories", { cache: "no-store" });
         const data = await res.json();
         if (data.success) {
-          // tampilkan hanya 5 kategori teratas
-          setCategories(data.data.slice(0, 5));
+          // ✅ tampilkan semua kategori tanpa dibatasi
+          setCategories(data.data);
         }
       } catch (error) {
         console.error("Gagal mengambil kategori:", error);
@@ -34,7 +34,7 @@ export default function KategoriPage() {
 
   return (
     <div className="w-full min-h-screen px-4 py-10">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6 text-center">
+      <h1 className="text-3xl font-bold text-gray-900 mb-6 text-center py-10">
         Kategori Produk
       </h1>
 
