@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/carousel";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Category = {
   _id: string;
@@ -28,12 +29,13 @@ type Category = {
 };
 
 export default function HomePage() {
-  const { products: fetchedProducts, loading } = useProducts();
+  const { products: fetchedProducts, loading: loadingProducts } = useProducts();
   const [products, setProducts] = useState<Product[]>([]);
   const [promos, setPromos] = useState<any[]>([]);
   const [likedIds, setLikedIds] = useState<string[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [loadingPromos, setLoadingPromos] = useState(true);
   const { isLoggedIn } = useAuth();
   const router = useRouter();
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -50,6 +52,19 @@ export default function HomePage() {
     };
     fetchUser();
   }, []);
+
+  useEffect(() => {
+    const localData = localStorage.getItem("products");
+    if (localData) {
+      setProducts(JSON.parse(localData));
+    }
+
+    // Jika data produk baru sudah di-fetch dari useProducts, update local storage
+    if (fetchedProducts.length > 0) {
+      setProducts(fetchedProducts);
+      localStorage.setItem("products", JSON.stringify(fetchedProducts));
+    }
+  }, [fetchedProducts]);
 
   // 🔹 Ambil kategori
   useEffect(() => {
@@ -78,19 +93,6 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    const localData = localStorage.getItem("products");
-    if (localData) {
-      setProducts(JSON.parse(localData));
-    }
-
-    // Jika data produk baru sudah di-fetch dari useProducts, update local storage
-    if (fetchedProducts.length > 0) {
-      setProducts(fetchedProducts);
-      localStorage.setItem("products", JSON.stringify(fetchedProducts));
-    }
-  }, [fetchedProducts]);
-
-  useEffect(() => {
     const localData = localStorage.getItem("promos");
     if (localData) {
       const parsed = JSON.parse(localData).filter((p: any) => p && p.title);
@@ -104,16 +106,18 @@ export default function HomePage() {
 
         if (data.success) {
           const promoList = Array.isArray(data.data) ? data.data : [data.data];
-
           const validPromos = promoList.filter(
             (p: { title: any }) => p && p.title
           );
-
           setPromos(validPromos);
+          // Simpan data baru ke local storage untuk cache
           localStorage.setItem("promos", JSON.stringify(validPromos));
         }
       } catch (err) {
         console.error("Gagal fetch promo:", err);
+      } finally {
+        // PERBAIKAN: Pastikan loading dihentikan apapun hasilnya (sukses/gagal)
+        setLoadingPromos(false);
       }
     };
 
@@ -138,20 +142,17 @@ export default function HomePage() {
     }
   }, [isLoggedIn, products]);
 
-  if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-12 text-center">
-        <p className="text-gray-600">Loading produk...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto px-4 pt-6">
       {/* 🔹 Daftar Kategori */}
       <div className="pb-6">
         {loadingCategories ? (
-          <p className="text-center text-gray-500">Memuat kategori...</p>
+          // Perubahan: Skeleton untuk Kategori
+          <div className="flex flex-wrap gap-3 justify-left">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <Skeleton key={index} className="h-9 w-28 rounded-2xl" />
+            ))}
+          </div>
         ) : categories.length === 0 ? (
           <p className="text-center text-gray-500">Belum ada kategori.</p>
         ) : (
@@ -196,35 +197,34 @@ export default function HomePage() {
         <h2 className="text-3xl font-bold mb-6 text-gray-900 text-center">
           Promo Spesial
         </h2>
-
-        {/* Promo Section */}
-        <Carousel
-          className="w-full max-w-6xl mx-auto"
-          opts={{ loop: true }}
-          plugins={[
-            Autoplay({
-              delay: 3000,
-              stopOnInteraction: false,
-            }),
-          ]}
-        >
-          <CarouselContent>
-            {promos
-              .filter((promo) => promo && promo.title) // pastikan tidak null
-              .map((promo: any, index: number) => (
-                <CarouselItem key={promo._id?.$oid || promo._id || index}>
-                  <PromoCard
-                    title={promo.title}
-                    subtitle={promo.subtitle}
-                    image={promo.image}
-                  />
-                </CarouselItem>
-              ))}
-          </CarouselContent>
-          <CarouselPrevious />
-          <CarouselNext />
-        </Carousel>
-        {/* 👇 Tombol hanya muncul jika user role = admin */}
+        {loadingPromos ? (
+          // Perubahan: Skeleton untuk Promo Carousel
+          <div className="w-full max-w-6xl mx-auto">
+            <Skeleton className="h-[250px] md:h-[350px] w-full rounded-lg" />
+          </div>
+        ) : (
+          <Carousel
+            className="w-full max-w-6xl mx-auto"
+            opts={{ loop: true }}
+            plugins={[Autoplay({ delay: 3000, stopOnInteraction: false })]}
+          >
+            <CarouselContent>
+              {promos
+                .filter((promo) => promo && promo.title)
+                .map((promo: any, index: number) => (
+                  <CarouselItem key={promo._id?.$oid || promo._id || index}>
+                    <PromoCard
+                      title={promo.title}
+                      subtitle={promo.subtitle}
+                      image={promo.image}
+                    />
+                  </CarouselItem>
+                ))}
+            </CarouselContent>
+            <CarouselPrevious />
+            <CarouselNext />
+          </Carousel>
+        )}
         {userRole === "admin" && (
           <div className="mt-6 flex justify-center">
             <Button
@@ -243,13 +243,24 @@ export default function HomePage() {
         Produk Unggulan
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        {products.map((product: Product) => (
-          <ProductCard
-            key={product._id}
-            product={{ ...product, _id: product._id.toString() }} // pastikan _id string
-            isInitiallyLiked={likedIds.includes(product._id.toString())}
-          />
-        ))}
+        {loadingProducts
+          ? // Perubahan: Skeleton untuk Product Card
+            Array.from({ length: 8 }).map((_, index) => (
+              <div key={index} className="flex flex-col space-y-3">
+                <Skeleton className="h-[225px] w-full rounded-xl" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-[200px]" />
+                  <Skeleton className="h-4 w-[150px]" />
+                </div>
+              </div>
+            ))
+          : products.map((product: Product) => (
+              <ProductCard
+                key={product._id}
+                product={{ ...product, _id: product._id.toString() }}
+                isInitiallyLiked={likedIds.includes(product._id.toString())}
+              />
+            ))}
       </div>
 
       {/* Link ke semua produk */}
