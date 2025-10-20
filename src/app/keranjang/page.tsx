@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getCookie } from "@/utils/cookies";
 import { useCart } from "@/context/CartContext"; // ✅ pakai context
@@ -19,6 +20,8 @@ export default function CartPage() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const router = useRouter();
+  const [removingItem, setRemovingItem] = useState<string | null>(null);
 
   // ✅ ambil context
   const { incrementCart, decrementCart, syncCartFromServer } = useCart();
@@ -98,6 +101,7 @@ export default function CartPage() {
     // langsung optimistik hapus di UI
     const removedItem = items.find((i) => i.productId === productId);
     if (!removedItem) return;
+    setRemovingItem(productId);
     setItems((prev) => prev.filter((i) => i.productId !== productId));
     decrementCart(removedItem.quantity);
 
@@ -108,12 +112,15 @@ export default function CartPage() {
         body: JSON.stringify({ userId, productId }),
       });
       if (!res.ok) throw new Error("Gagal hapus produk");
+      await fetchCart();
       syncCartFromServer();
     } catch (err) {
       console.error(err);
       alert("Gagal menghapus item");
-      fetchCart(); // rollback
+      await fetchCart(); // rollback
       syncCartFromServer();
+    } finally {
+      setRemovingItem(null); // 🔹 matikan loading
     }
   };
 
@@ -131,33 +138,67 @@ export default function CartPage() {
       alert("Keranjang Anda kosong!");
       return;
     }
+
     setLoading(true);
     try {
+      // 🔹 Ambil nama user dari cookie (atau bisa dari auth context)
+      const userName = getCookie("name") || "User";
+
+      // 🔹 Hitung total quantity dari seluruh item di keranjang
+      const totalQuantity = items.reduce(
+        (sum, item) => sum + (item.quantity || 0),
+        0
+      );
+
+      // 🔹 Hitung index order (bisa berdasarkan jumlah order user sebelumnya kalau backend mendukung)
+      const orderIndex = Math.floor(Math.random() * 1000);
+
+      // 2️⃣ (Opsional) Simpan order ke database / backend jika ingin disimpan
       const payload = {
-        id: `ORDER-${Date.now()}`,
-        productName: "Keranjang Belanja",
+        productName: `${userName} - keranjang ${orderIndex}`,
         price: total,
-        quantity: 1,
+        quantity: totalQuantity,
+        items, // daftar produk
+        status: "pending",
+        created_at: new Date().toISOString(),
       };
 
-      const response = await fetch("/api/payment/create-transaction", {
+      // Misalnya kamu punya endpoint untuk membuat order baru
+      const response = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message);
-      if (window.snap) {
-        window.snap.pay(data.token, {
-          onSuccess: () => alert("Pembayaran berhasil!"),
-          onPending: () => alert("Menunggu pembayaran."),
-          onError: () => alert("Pembayaran gagal."),
-          onClose: () => alert("Anda menutup pop-up pembayaran."),
-        });
+
+      // Jika backend belum ada, blok ini bisa dilewati dulu
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || "Gagal membuat order");
       }
+
+      // 🔹 Ambil hasil dari backend
+      const result = await response.json();
+
+      // Pastikan hasil mengandung `_id`
+      const insertedId =
+        result?.data?.insertedId ||
+        result?.data?._id ||
+        result?.insertedId ||
+        null;
+
+      if (!insertedId) {
+        throw new Error("Tidak dapat menemukan ID order dari server.");
+      }
+
+      // 🔹 Redirect ke halaman detail order
+      router.push(`/order/${insertedId}`);
     } catch (error) {
       console.error(error);
-      alert("Terjadi kesalahan saat checkout.");
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan saat membuat pesanan."
+      );
     } finally {
       setLoading(false);
     }
@@ -190,6 +231,13 @@ export default function CartPage() {
                 key={item.productId}
                 className="flex items-center justify-between border p-4 rounded-lg"
               >
+                {removingItem === item.productId && (
+                  <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+                    <p className="text-gray-700 font-medium animate-pulse">
+                      Mohon tunggu sebentar...
+                    </p>
+                  </div>
+                )}
                 <div className="flex items-center gap-4">
                   <img
                     src={item.image || "/no-image.png"}
@@ -225,8 +273,9 @@ export default function CartPage() {
                   <button
                     onClick={() => handleRemoveItem(item.productId)}
                     className="ml-4 text-red-500"
+                    disabled={removingItem === item.productId}
                   >
-                    Hapus
+                    {removingItem === item.productId ? "Menghapus..." : "Hapus"}
                   </button>
                 </div>
               </div>
