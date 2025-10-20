@@ -44,11 +44,10 @@ export default function RootLayout({
           <CartProvider>
             <LikesProvider>
               <Navbar />
-              <main className="container mx-auto px-4 py-8 bg-white text-black">
+              <main className="min-h-screen px-4 py-8 bg-white text-black">
                 {children}
                 <Toaster position="top-center" />
               </main>
-              <Footer />
 
               <HoverCard openDelay={50} closeDelay={50}>
                 <HoverCardTrigger asChild>
@@ -80,6 +79,8 @@ export default function RootLayout({
                   </div>
                 </HoverCardContent>
               </HoverCard>
+
+              <Footer />
             </LikesProvider>
           </CartProvider>
         </AuthProvider>
