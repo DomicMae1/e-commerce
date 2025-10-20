@@ -49,6 +49,7 @@ export default function ProductCard({
 
       if (!res.ok) throw new Error("Gagal menambahkan ke keranjang");
       alert("Produk berhasil ditambahkan ke keranjang");
+      window.location.reload();
     } catch (err) {
       console.error(err);
       decrementCart(quantity);
@@ -76,6 +77,7 @@ export default function ProductCard({
       if (!res.ok) throw new Error(data.error || "Gagal memproses permintaan");
 
       mutateLikes();
+      window.location.reload();
     } catch (err) {
       console.error(err);
       setIsLiked((prev) => !prev);
