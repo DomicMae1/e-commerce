@@ -5,6 +5,8 @@ import midtransClient from "midtrans-client";
 // 1. Ambil dan validasi environment variables terlebih dahulu
 const serverKey = process.env.NEXT_PUBLIC_SECRET;
 const clientKey = process.env.NEXT_PUBLIC_CLIENT;
+const isProduction =
+  process.env.MIDTRANS_IS_PRODUCTION === "true" ? true : false;
 
 if (!serverKey) {
   throw new Error("Variabel lingkungan MIDTRANS_SERVER_KEY belum diatur!");
@@ -17,13 +19,13 @@ if (!clientKey) {
 
 // 2. Buat instance client dengan variabel yang sudah divalidasi
 const snap = new midtransClient.Snap({
-  isProduction: process.env.NODE_ENV === "production",
+  isProduction,
   serverKey: serverKey,
   clientKey: clientKey,
 });
 
 const coreApi = new midtransClient.CoreApi({
-  isProduction: process.env.NODE_ENV === "production",
+  isProduction,
   serverKey: serverKey,
   clientKey: clientKey,
 });
