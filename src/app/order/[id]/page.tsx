@@ -37,11 +37,12 @@ async function getOrderById(id: string): Promise<Order | null> {
 }
 
 export default async function OrderPage({
-  params,
+  params: paramsPromise,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const order = await getOrderById(params.id);
+  const { id } = await paramsPromise;
+  const order = await getOrderById(id);
 
   if (!order) {
     notFound();
