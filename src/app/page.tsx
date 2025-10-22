@@ -40,6 +40,11 @@ export default function HomePage() {
   const router = useRouter();
   const [userRole, setUserRole] = useState<string | null>(null);
 
+  console.log("ENV CHECK", {
+    serverKey: process.env.NEXT_PUBLIC_SECRET,
+    clientKey: process.env.NEXT_PUBLIC_CLIENT,
+  });
+
   useEffect(() => {
     const fetchUser = async () => {
       try {
