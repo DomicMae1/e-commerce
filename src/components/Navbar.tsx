@@ -60,7 +60,7 @@ export default function Navbar() {
   const userLink = user?.role === "admin" ? "/user/admin" : "/user";
 
   return (
-    <header className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b py-2">
+    <header className="bg-white backdrop-blur-md sticky top-0 z-50 border-b py-2">
       <nav className="container mx-auto px-4 pt-1">
         <div className="flex justify-between items-center">
           <Link
